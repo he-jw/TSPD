@@ -9,7 +9,7 @@ const router = createRouter({
       name: 'home',
       component: () => import('@/views/HomeView.vue'),
       meta: {
-        title: '首页',
+        title: '图书馆总览',
         icon: House
       }
     },
