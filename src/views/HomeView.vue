@@ -1,6 +1,59 @@
 <template>
   <page-container title="数据概览">
     <el-row :gutter="20">
+      <!-- 总体盘点数据统计 -->
+      <el-col :span="24">
+        <el-card class="chart-card">
+          <template #header>
+            <div class="card-header">
+              <span>总体盘点情况</span>
+            </div>
+          </template>
+          <div class="total-statistics">
+            <div class="stat-item">
+              <div class="stat-value">{{ totalChecked }}</div>
+              <div class="stat-label">已盘点数量</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ totalUnchecked }}</div>
+              <div class="stat-label">未盘点数量</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ totalBooks }}</div>
+              <div class="stat-label">总藏书数量</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+
+      <el-col :span="12">
+        <el-card class="chart-card">
+          <template #header>
+            <div class="card-header">
+              <span>图书盘点状况</span>
+              <el-tooltip content="展示所有图书的状态分布情况">
+                <el-icon>
+                  <QuestionFilled />
+                </el-icon>
+              </el-tooltip>
+            </div>
+          </template>
+          <div class="chart-container" ref="pieChartRef1"></div>
+        </el-card>
+      </el-col>
+      <!-- 堆叠柱状图：盘点进度 -->
+      <el-col :span="12">
+        <el-card class="chart-card">
+          <template #header>
+            <div class="card-header">
+              <span>盘点进度</span>
+              <el-tag type="success">完成率：{{ completionRate }}%</el-tag>
+            </div>
+          </template>
+          <div class="chart-container" ref="stackBarChartRef"></div>
+        </el-card>
+      </el-col>
+
       <!-- 扇形图：所有书籍状态分布 -->
       <el-col :span="12">
         <el-card class="chart-card">
@@ -8,7 +61,9 @@
             <div class="card-header">
               <span>图书状态分布</span>
               <el-tooltip content="展示所有图书的状态分布情况">
-                <el-icon><QuestionFilled /></el-icon>
+                <el-icon>
+                  <QuestionFilled />
+                </el-icon>
               </el-tooltip>
             </div>
           </template>
@@ -23,7 +78,9 @@
             <div class="card-header">
               <span>各楼层图书状态</span>
               <el-tooltip content="展示每层图书的数量和状态分布">
-                <el-icon><QuestionFilled /></el-icon>
+                <el-icon>
+                  <QuestionFilled />
+                </el-icon>
               </el-tooltip>
             </div>
           </template>
@@ -38,12 +95,7 @@
             <div class="card-header">
               <span>状态变化趋势</span>
               <el-select v-model="selectedFloor" placeholder="选择楼层" style="width: 120px">
-                <el-option
-                  v-for="floor in floors"
-                  :key="floor"
-                  :label="`${floor}层`"
-                  :value="floor"
-                />
+                <el-option v-for="floor in floors" :key="floor" :label="`${floor}层`" :value="floor" />
               </el-select>
             </div>
           </template>
@@ -51,28 +103,18 @@
         </el-card>
       </el-col>
 
-      <!-- 堆叠柱状图：盘点进度 -->
-      <el-col :span="12">
-        <el-card class="chart-card">
-          <template #header>
-            <div class="card-header">
-              <span>盘点进度</span>
-              <el-tag type="success">完成率：{{ completionRate }}%</el-tag>
-            </div>
-          </template>
-          <div class="chart-container" ref="stackBarChartRef"></div>
-        </el-card>
-      </el-col>
+
     </el-row>
   </page-container>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { QuestionFilled } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import PageContainer from '@/components/layout/PageContainer.vue'
 
+const pieChartRef1 = ref<HTMLElement>()
 const pieChartRef = ref<HTMLElement>()
 const barChartRef = ref<HTMLElement>()
 const lineChartRef = ref<HTMLElement>()
@@ -80,6 +122,14 @@ const stackBarChartRef = ref<HTMLElement>()
 const selectedFloor = ref(1)
 const floors = Array.from({ length: 18 }, (_, i) => i + 1)
 const completionRate = ref(68)
+// 生成随机数据（实际项目中应该从API获取）
+const checkedData = floors.map(() => Math.floor(Math.random() * 800))
+const uncheckedData = floors.map(() => Math.floor(Math.random() * 400))
+
+// 计算总数据
+const totalChecked = computed(() => checkedData.reduce((sum, curr) => sum + curr, 0))
+const totalUnchecked = computed(() => uncheckedData.reduce((sum, curr) => sum + curr, 0))
+const totalBooks = computed(() => totalChecked.value + totalUnchecked.value)
 
 // 初始化图表
 let pieChart: echarts.ECharts
@@ -88,6 +138,48 @@ let lineChart: echarts.ECharts
 let stackBarChart: echarts.ECharts
 
 onMounted(() => {
+
+  pieChart = echarts.init(pieChartRef1.value!)
+  pieChart.setOption({
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b}: {c} ({d}%)'
+    },
+    legend: {
+      orient: 'vertical',
+      left: 'left',
+      data: ['已盘点', '未盘点']
+    },
+    series: [
+      {
+        name: '盘点情况',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 10,
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        label: {
+          show: true,
+          formatter: '{b}: {d}%'
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: 16,
+            fontWeight: 'bold'
+          }
+        },
+        data: [
+          { value: totalChecked.value, name: '已盘点' },
+          { value: totalUnchecked.value, name: '未盘点' }
+        ]
+      }
+    ]
+  })
+
   // 初始化扇形图
   pieChart = echarts.init(pieChartRef.value!)
   pieChart.setOption({
@@ -262,6 +354,30 @@ watch(selectedFloor, () => {
 
 .chart-container {
   height: 300px;
+}
+
+.total-statistics {
+  display: flex;
+  justify-content: space-around;
+  padding: 20px;
+  height: 200px;
+  align-items: center;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 36px;
+  font-weight: bold;
+  color: #409EFF;
+  margin-bottom: 10px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #606266;
 }
 
 :deep(.el-card__header) {
